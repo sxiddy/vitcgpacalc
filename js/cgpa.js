@@ -10,10 +10,10 @@
 
   // ---------- state: this page's own, plus the calculator's (same tab) ----------
   let st = { mode: 'quick', quick: { cgpa: '', credits: '' }, past: [], cleared: [] };
-  try { const s = JSON.parse(sessionStorage.getItem('vc-cgpa')); if (s && s.quick) st = Object.assign(st, s); } catch (e) {}
-  const save = () => { try { sessionStorage.setItem('vc-cgpa', JSON.stringify(st)); } catch (e) {} };
+  { const s = vcData.get('vc-cgpa'); if (s && s.quick) st = Object.assign(st, s); }
+  const save = () => vcData.set('vc-cgpa', st);
   function calcState() {
-    try { const s = JSON.parse(sessionStorage.getItem('vc-state')); if (s && s.sems) return s; } catch (e) {}
+    const s = vcData.get('vc-state'); if (s && s.sems) return s;
     return { sems: {}, locks: {} };
   }
   const uid = () => Math.random().toString(36).slice(2, 9);
@@ -46,6 +46,18 @@
   // calculator semesters, oldest first: { id, name, n, credits, confirmed, gpa, graded, courses }
   function calcSems() {
     const cs = calcState(), locks = cs.locks || {};
+  // every subject in a calculator semester with its total and grade, so past semesters stay readable
+  const openLogs = new Set();
+  function semLog(id) {
+    const subs = (calcState().sems || {})[id] || [];
+    const rows = subs.map(sub => {
+      const ps = VC.parts(sub);
+      const res = ps.map(p => `<span class="log-part">${ps.length > 1 ? esc(p.key === 'lab' ? 'Lab' : 'Theory') + ' ' : ''}${p.value === null ? '–' : fmt(p.value)}${p.grade ? ` <b style="--gc:var(--g-${p.grade})">${p.grade}</b>` : ''}</span>`).join('');
+      return `<li><div class="log-name"><b>${esc(sub.c)}</b><span>${esc(sub.t)} · ${plural(Number(sub.cr) || 0, 'credit')}</span></div><div class="log-res">${res}</div></li>`;
+    }).join('');
+    return `<ul class="log">${rows}</ul><a class="btn btn-sm btn-ghost log-open" href="calc?sem=${encodeURIComponent(id)}">Open in calculator</a>`;
+  }
+
     return Object.keys(cs.sems).filter(id => (cs.sems[id] || []).length).sort((a, b) => semOrder(a) - semOrder(b)).map(id => {
       const subs = cs.sems[id], g = VC.gpa(subs);
       return { id, name: semName(id), n: subs.length, credits: g.credits, confirmed: !!(locks[id] && locks[id].confirmed), gpa: g.gpa, graded: g.gradedCredits, courses: VC.courses(subs) };
@@ -89,7 +101,7 @@
       else if (s.gpa === null) state = `<span class="tag warn">Add grade ranges to get a GPA</span>`;
       else { val = two(s.gpa); state = s === r.now ? '<span class="tag blue">This semester</span>' : '<span class="tag">Counted</span>'; }
       const part = s.confirmed && s.gpa !== null && s.graded < s.credits ? ` · ${fmt(s.graded)} of ${fmt(s.credits)} credits graded` : '';
-      return `<li class="sem-row"><div class="sem-main"><b>${esc(s.name)}</b><span>${plural(s.n, 'subject')} · ${plural(s.credits, 'credit')}${part}</span>${state}</div><div class="sem-gpa${val === '–' ? ' muted' : ''}">${val}</div></li>`;
+      return `<li><details class="sem-log" data-sem="${esc(s.id)}"${openLogs.has(s.id) ? ' open' : ''}><summary class="sem-row"><div class="sem-main"><b>${esc(s.name)}</b><span>${plural(s.n, 'subject')} · ${plural(s.credits, 'credit')}${part}</span>${state}</div><div class="sem-gpa${val === '–' ? ' muted' : ''}">${val}</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></summary>${semLog(s.id)}</details></li>`;
     }).join('') : '<li class="sem-empty">Nothing here yet. Add your subjects in the <a href="calc">calculator</a> and confirm them.</li>';
   }
 
@@ -185,6 +197,12 @@
       e.preventDefault();
       const name = f.name.value.trim() || 'Semester ' + (editing >= 0 ? editing + 1 : st.past.length + 1);
       const g = VC.num(f.gpa.value), c = VC.num(f.credits.value), rule = VC.semCredits(f.credits.value), S = VC.SEM_CREDITS;
+    // marks changed in another tab: pick them up
+    addEventListener('storage', e => {
+      if (e.key === 'vc-cgpa') { const s = vcData.get('vc-cgpa'); if (s && s.quick) { st = Object.assign(st, s); renderMode(); } }
+      if (e.key === 'vc-cgpa' || e.key === 'vc-state' || e.key === null) render();
+    });
+    $('#calc-list').addEventListener('toggle', e => { const d = e.target.closest('[data-sem]'); if (d) d.open ? openLogs.add(d.dataset.sem) : openLogs.delete(d.dataset.sem); }, true);
       let err = '';
       if (g === null) err = 'Enter the GPA for this semester';
       else if (VC.checkGpa(f.gpa.value)) err = 'GPA ' + VC.checkGpa(f.gpa.value);

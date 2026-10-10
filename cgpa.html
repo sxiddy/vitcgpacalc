@@ -29,7 +29,7 @@
 </header>
 <div class="banner" data-banner>
   <div class="wrap">
-    <p><a href="#" data-signin>Sign in</a> to save your marks. Without signing in everything still works, but your marks are cleared when you close this tab.</p>
+    <p>Your marks are saved on this device. <a href="#" data-signin>Sign in</a> (coming soon) to keep them on every device.</p>
     <button type="button" data-banner-close aria-label="Dismiss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
 </div>
@@ -100,6 +100,17 @@
       </div>
     </details>
   </section>
+    <article class="card cg-card" id="your-data">
+      <div class="card-head"><div class="meta"><div class="code">All 4 years</div><h2>Your data</h2></div></div>
+      <div class="card-body">
+        <p class="hint">Every semester's subjects, marks and grades are saved in this browser on this device, so you can come back to them any time. Download a backup now and then. It's the way to move to a new phone or laptop, and it keeps your data safe if the browser is cleared. Using a shared or lab computer? Delete your data when you're done.</p>
+        <div class="data-actions">
+          <button type="button" class="btn btn-sm" data-backup>Download backup</button>
+          <label class="btn btn-sm">Restore backup<input type="file" accept=".json,application/json" data-restore hidden></label>
+          <button type="button" class="btn btn-sm btn-ghost danger" data-wipe>Delete all data</button>
+        </div>
+      </div>
+    </article>
 
   <aside class="cg-result" aria-label="CGPA result" aria-live="polite">
     <h2 id="big-label">Your CGPA</h2>

@@ -24,11 +24,11 @@
     return { list, def };
   }
 
-  // ---------- state (kept for this browser tab only until sign-in exists) ----------
+  // ---------- state (saved on this device until sign-in exists) ----------
   const SEMS = semesters();
   let state = { sem: SEMS.def, sems: {} };
-  try { const s = JSON.parse(sessionStorage.getItem('vc-state')); if (s && s.sems) state = s; } catch (e) {}
-  const save = () => { try { sessionStorage.setItem('vc-state', JSON.stringify(state)); } catch (e) {} };
+  { const s = vcData.get('vc-state'); if (s && s.sems) state = s; }
+  const save = () => vcData.set('vc-state', state);
   const subjects = () => (state.sems[state.sem] = state.sems[state.sem] || []);
   const byId = id => subjects().find(s => s.id === id);
 
@@ -414,6 +414,9 @@
   // ---------- semester ----------
   function bindSemester() {
     const sel = $('#semester');
+    // the CGPA page links here with ?sem=FALLSEM2025-26 to open that semester
+    const want = new URLSearchParams(location.search).get('sem');
+    if (want && SEMS.list.some(s => s.id === want)) { state.sem = want; save(); history.replaceState(null, '', location.pathname); }
     if (!SEMS.list.some(s => s.id === state.sem)) state.sem = SEMS.def;
     sel.innerHTML = SEMS.list.map(s => `<option value="${s.id}"${s.id === state.sem ? ' selected' : ''}>${s.name}</option>`).join('');
     sel.addEventListener('change', () => { state.sem = sel.value; save(); renderCards(); });
@@ -424,6 +427,12 @@
     $('#lockbar').addEventListener('click', e => { if (e.target.closest('[data-confirm-subjects]')) confirmSubjects(); });
     let wasLocked = isLocked();
     setInterval(() => { if (wasLocked && !isLocked()) renderCards(); wasLocked = isLocked(); }, 30000);
+    // another tab may have changed the saved marks; take them when this tab comes back so it can't overwrite them
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      const s = vcData.get('vc-state');
+      if (s && s.sems && JSON.stringify(s) !== JSON.stringify(state)) { state = s; $('#semester').value = state.sem; renderCards(); }
+    });
     fetch('data/subjects.json').then(r => r.json()).then(list => { catalog = list.filter(c => c.y !== 'PJT'); }).catch(() => vcToast("Couldn't load the subject list. You can still add subjects yourself."));
   });
 })();
