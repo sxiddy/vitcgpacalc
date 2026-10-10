@@ -81,5 +81,21 @@ eq('blocks with no credits ignored', VC.cgpa([{ gpa: 9, credits: 0 }, { gpa: nul
 eq('calculator semester feeds CGPA', VC.cgpa([{ gpa: 8, credits: 40 }, { courses: VC.courses([Object.assign({ c: 'BCSE101' }, etl), fail]) }]).cgpa, 7.5); // (320 + 40 + 0) / 48
 eq('all S is 10', VC.cgpa([{ gpa: 10, credits: 23 }, { courses: [C('a', 4, 'S')] }]).cgpa, 10);
 
+// ---------- CGPA page summary (also used by the share card) ----------
+const S1 = Object.assign({ c: 'BCSE101' }, etl), S2 = Object.assign({ c: 'BMAT101' }, fail);
+const cs = { sems: { 'FALLSEM2026-27': [S1, S2], 'WINSEM2025-26': [Object.assign({}, S1, { c: 'BCSE100' })] }, locks: { 'FALLSEM2026-27': { confirmed: true }, 'WINSEM2025-26': { confirmed: true } } };
+const sum = VC.cgpaSummary({ mode: 'quick', quick: { cgpa: '8', credits: '40' } }, cs);
+eq('summary: this semester is the latest confirmed', sum.now.name, 'Fall 2026-27');
+eq('summary: CGPA before and after', [sum.before.cgpa, sum.after.cgpa], [8.18, 7.69]); // (320 + 40) / 44, then (360 + 40 + 0) / 52
+eq('summary: unconfirmed semester does not count', VC.cgpaSummary({}, { sems: cs.sems, locks: {} }).after, null);
+eq('summary: half-filled quick entry is an error', VC.cgpaSummary({ quick: { cgpa: '8', credits: '' } }, {}).past.err, 'Add the credits you have completed too');
+eq('summary: semester names', [VC.semName('WINSEM2025-26'), VC.semName('SUMSEM2026-27')], ['Winter 2025-26', 'Summer 2026-27']);
+
+// ---------- QR code ----------
+const QR = require('../js/qr.js');
+const q = QR.make('https://vitcgpacalc.vercel.app');
+eq('QR for the site link is version 3 (29 x 29)', [q.version, q.size], [3, 29]);
+eq('QR finder corners are dark', [q.dark(0, 0), q.dark(28, 0), q.dark(0, 28), q.dark(28, 28)], [true, true, true, false]);
+
 console.log(fails ?fails + ' failed' : 'all passed');
 process.exit(fails ? 1 : 0);

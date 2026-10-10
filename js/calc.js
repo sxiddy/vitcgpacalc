@@ -172,6 +172,44 @@
     return { cgpa: cr > 0 ? r2(pts / cr) : null, credits: cr, points: r2(pts), replaced };
   }
 
-  const VC = { GRADES, POINTS, LIMITS, SEM_CREDITS, num, theory, lab, single, checkRanges, gradeOf, splitCredits, parts, gpa, courses, semCredits, checkGpa, cgpa };
+  // FALLSEM2026-27 -> 'Fall 2026-27'; order: Fall, Winter, Summer of each academic year
+  const SEM_RE = /^(FALL|WIN|SUM)SEM(\d{4})-(\d{2})$/;
+  const semName = id => { const m = SEM_RE.exec(id); return m ? { FALL: 'Fall', WIN: 'Winter', SUM: 'Summer' }[m[1]] + ' ' + m[2] + '-' + m[3] : id; };
+  const semOrder = id => { const m = SEM_RE.exec(id); return m ? +m[2] * 3 + { FALL: 0, WIN: 1, SUM: 2 }[m[1]] : 0; };
+
+  // the CGPA page's whole picture, from its own state (st) and the calculator's (cs)
+  // st = { mode: 'quick'|'detailed', quick: { cgpa, credits }, past: [{ name, gpa, credits }], cleared: [{ credits }] }
+  function cgpaSummary(st, cs) {
+    st = st || {}; cs = cs || {};
+    const quick = st.quick || {}, pastList = st.past || [], clearedList = st.cleared || [];
+    let past;
+    if (st.mode !== 'detailed') {
+      const g = num(quick.cgpa), c = num(quick.credits), gErr = checkGpa(quick.cgpa);
+      let err = '';
+      if (gErr) err = 'CGPA ' + gErr;
+      else if (c !== null && (Number.isNaN(c) || c <= 0 || c > 400)) err = 'Credits must be between 1 and 400';
+      else if ((g === null) !== (c === null)) err = g === null ? 'Add your current CGPA too' : 'Add the credits you have completed too';
+      past = err || g === null ? { blocks: [], rows: [], err } : { blocks: [{ gpa: g, credits: c }], rows: [{ name: 'Earlier semesters', tag: 'Typed in', gpa: g, credits: c, quick: true }], err: '' };
+    } else {
+      past = { blocks: pastList.map(p => ({ gpa: +p.gpa, credits: +p.credits })), rows: pastList.map(p => ({ name: p.name, tag: 'Typed in', gpa: +p.gpa, credits: +p.credits })), err: '' };
+    }
+    const semsMap = cs.sems || {}, locks = cs.locks || {};
+    const sems = Object.keys(semsMap).filter(id => (semsMap[id] || []).length).sort((a, b) => semOrder(a) - semOrder(b)).map(id => {
+      const subs = semsMap[id], g = gpa(subs);
+      return { id, name: semName(id), n: subs.length, credits: g.credits, confirmed: !!(locks[id] && locks[id].confirmed), gpa: g.gpa, graded: g.gradedCredits, courses: courses(subs) };
+    });
+    const counted = sems.filter(s => s.confirmed && s.gpa !== null);
+    const now = counted[counted.length - 1] || null; // "this semester": the latest confirmed one
+    const earlier = counted.slice(0, -1);
+    const pastCredits = past.blocks.reduce((n, b) => n + b.credits, 0);
+    const clearedCr = clearedList.reduce((n, c) => n + c.credits, 0);
+    const clearedErr = clearedCr > pastCredits && clearedList.length ? `Cleared courses add up to ${r2(clearedCr)} credits, more than the ${r2(pastCredits)} credits you typed in above` : '';
+    const cleared = clearedErr ? [] : clearedList;
+    const before = cgpa(past.blocks.concat(earlier.map(s => ({ courses: s.courses }))), cleared);
+    const after = now ? cgpa(past.blocks.concat(counted.map(s => ({ courses: s.courses }))), cleared) : null;
+    return { past, sems, counted, now, before, after, clearedCr: clearedErr ? 0 : clearedCr, clearedErr };
+  }
+
+  const VC = { GRADES, POINTS, LIMITS, SEM_CREDITS, num, theory, lab, single, checkRanges, gradeOf, splitCredits, parts, gpa, courses, semCredits, checkGpa, cgpa, semName, semOrder, cgpaSummary };
   if (typeof module !== 'undefined' && module.exports) module.exports = VC; else root.VC = VC;
 })(this);

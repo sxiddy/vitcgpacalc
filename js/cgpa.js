@@ -18,66 +18,7 @@
   }
   const uid = () => Math.random().toString(36).slice(2, 9);
 
-  // FALLSEM2026-27 -> 'Fall 2026-27'; order: Fall, Winter, Summer of each academic year
-  const SEM_RE = /^(FALL|WIN|SUM)SEM(\d{4})-(\d{2})$/;
-  const semName = id => { const m = SEM_RE.exec(id); return m ? { FALL: 'Fall', WIN: 'Winter', SUM: 'Summer' }[m[1]] + ' ' + m[2] + '-' + m[3] : id; };
-  const semOrder = id => { const m = SEM_RE.exec(id); return m ? +m[2] * 3 + { FALL: 0, WIN: 1, SUM: 2 }[m[1]] : 0; };
-
-  // ---------- gathering everything that counts ----------
-  // past part: { blocks, rows, err }
-  function pastPart() {
-    if (st.mode === 'quick') {
-      const g = VC.num(st.quick.cgpa), c = VC.num(st.quick.credits);
-      const gErr = VC.checkGpa(st.quick.cgpa);
-      let err = '';
-      if (gErr) err = 'CGPA ' + gErr;
-      else if (c !== null && (Number.isNaN(c) || c <= 0 || c > 400)) err = 'Credits must be between 1 and 400';
-      else if ((g === null) !== (c === null)) err = g === null ? 'Add your current CGPA too' : 'Add the credits you have completed too';
-      if (err || g === null) return { blocks: [], rows: [], err };
-      return { blocks: [{ gpa: g, credits: c }], rows: [{ name: 'Earlier semesters', tag: 'Typed in', gpa: g, credits: c, quick: true }], err: '' };
-    }
-    return {
-      blocks: st.past.map(p => ({ gpa: +p.gpa, credits: +p.credits })),
-      rows: st.past.map(p => ({ name: p.name, tag: 'Typed in', gpa: +p.gpa, credits: +p.credits })),
-      err: ''
-    };
-  }
-
-  // calculator semesters, oldest first: { id, name, n, credits, confirmed, gpa, graded, courses }
-  function calcSems() {
-    const cs = calcState(), locks = cs.locks || {};
-  // every subject in a calculator semester with its total and grade, so past semesters stay readable
-  const openLogs = new Set();
-  function semLog(id) {
-    const subs = (calcState().sems || {})[id] || [];
-    const rows = subs.map(sub => {
-      const ps = VC.parts(sub);
-      const res = ps.map(p => `<span class="log-part">${ps.length > 1 ? esc(p.key === 'lab' ? 'Lab' : 'Theory') + ' ' : ''}${p.value === null ? '–' : fmt(p.value)}${p.grade ? ` <b style="--gc:var(--g-${p.grade})">${p.grade}</b>` : ''}</span>`).join('');
-      return `<li><div class="log-name"><b>${esc(sub.c)}</b><span>${esc(sub.t)} · ${plural(Number(sub.cr) || 0, 'credit')}</span></div><div class="log-res">${res}</div></li>`;
-    }).join('');
-    return `<ul class="log">${rows}</ul><a class="btn btn-sm btn-ghost log-open" href="calc?sem=${encodeURIComponent(id)}">Open in calculator</a>`;
-  }
-
-    return Object.keys(cs.sems).filter(id => (cs.sems[id] || []).length).sort((a, b) => semOrder(a) - semOrder(b)).map(id => {
-      const subs = cs.sems[id], g = VC.gpa(subs);
-      return { id, name: semName(id), n: subs.length, credits: g.credits, confirmed: !!(locks[id] && locks[id].confirmed), gpa: g.gpa, graded: g.gradedCredits, courses: VC.courses(subs) };
-    });
-  }
-
-  function compute() {
-    const past = pastPart();
-    const sems = calcSems();
-    const counted = sems.filter(s => s.confirmed && s.gpa !== null);
-    const now = counted[counted.length - 1] || null; // "this semester": the latest confirmed one
-    const earlier = counted.slice(0, -1);
-    const pastCredits = past.blocks.reduce((n, b) => n + b.credits, 0);
-    const clearedCr = st.cleared.reduce((n, c) => n + c.credits, 0);
-    const clearedErr = clearedCr > pastCredits && st.cleared.length ? `Cleared courses add up to ${fmt(clearedCr)} credits, more than the ${fmt(pastCredits)} credits you typed in above` : '';
-    const cleared = clearedErr ? [] : st.cleared;
-    const before = VC.cgpa(past.blocks.concat(earlier.map(s => ({ courses: s.courses }))), cleared);
-    const after = now ? VC.cgpa(past.blocks.concat(counted.map(s => ({ courses: s.courses }))), cleared) : null;
-    return { past, sems, counted, now, before, after, clearedCr: clearedErr ? 0 : clearedCr, clearedErr };
-  }
+  const compute = () => VC.cgpaSummary(st, calcState());
 
   // ---------- rendering ----------
   function renderMode() {
@@ -103,6 +44,18 @@
       const part = s.confirmed && s.gpa !== null && s.graded < s.credits ? ` · ${fmt(s.graded)} of ${fmt(s.credits)} credits graded` : '';
       return `<li><details class="sem-log" data-sem="${esc(s.id)}"${openLogs.has(s.id) ? ' open' : ''}><summary class="sem-row"><div class="sem-main"><b>${esc(s.name)}</b><span>${plural(s.n, 'subject')} · ${plural(s.credits, 'credit')}${part}</span>${state}</div><div class="sem-gpa${val === '–' ? ' muted' : ''}">${val}</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></summary>${semLog(s.id)}</details></li>`;
     }).join('') : '<li class="sem-empty">Nothing here yet. Add your subjects in the <a href="calc">calculator</a> and confirm them.</li>';
+  }
+
+  // every subject in a calculator semester with its total and grade, so past semesters stay readable
+  const openLogs = new Set();
+  function semLog(id) {
+    const subs = (calcState().sems || {})[id] || [];
+    const rows = subs.map(sub => {
+      const ps = VC.parts(sub);
+      const res = ps.map(p => `<span class="log-part">${ps.length > 1 ? esc(p.key === 'lab' ? 'Lab' : 'Theory') + ' ' : ''}${p.value === null ? '–' : fmt(p.value)}${p.grade ? ` <b style="--gc:var(--g-${p.grade})">${p.grade}</b>` : ''}</span>`).join('');
+      return `<li><div class="log-name"><b>${esc(sub.c)}</b><span>${esc(sub.t)} · ${plural(Number(sub.cr) || 0, 'credit')}</span></div><div class="log-res">${res}</div></li>`;
+    }).join('');
+    return `<ul class="log">${rows}</ul><a class="btn btn-sm btn-ghost log-open" href="calc?sem=${encodeURIComponent(id)}">Open in calculator</a>`;
   }
 
   function renderCleared(r) {
@@ -197,12 +150,6 @@
       e.preventDefault();
       const name = f.name.value.trim() || 'Semester ' + (editing >= 0 ? editing + 1 : st.past.length + 1);
       const g = VC.num(f.gpa.value), c = VC.num(f.credits.value), rule = VC.semCredits(f.credits.value), S = VC.SEM_CREDITS;
-    // marks changed in another tab: pick them up
-    addEventListener('storage', e => {
-      if (e.key === 'vc-cgpa') { const s = vcData.get('vc-cgpa'); if (s && s.quick) { st = Object.assign(st, s); renderMode(); } }
-      if (e.key === 'vc-cgpa' || e.key === 'vc-state' || e.key === null) render();
-    });
-    $('#calc-list').addEventListener('toggle', e => { const d = e.target.closest('[data-sem]'); if (d) d.open ? openLogs.add(d.dataset.sem) : openLogs.delete(d.dataset.sem); }, true);
       let err = '';
       if (g === null) err = 'Enter the GPA for this semester';
       else if (VC.checkGpa(f.gpa.value)) err = 'GPA ' + VC.checkGpa(f.gpa.value);
@@ -250,6 +197,12 @@
     bindPast(); bindCleared();
     // coming back from the calculator with the back button can show a cached page
     addEventListener('pageshow', e => { if (e.persisted) render(); });
+    // marks changed in another tab: pick them up
+    addEventListener('storage', e => {
+      if (e.key === 'vc-cgpa') { const s = vcData.get('vc-cgpa'); if (s && s.quick) { st = Object.assign(st, s); renderMode(); } }
+      if (e.key === 'vc-cgpa' || e.key === 'vc-state' || e.key === null) render();
+    });
+    $('#calc-list').addEventListener('toggle', e => { const d = e.target.closest('[data-sem]'); if (d) d.open ? openLogs.add(d.dataset.sem) : openLogs.delete(d.dataset.sem); }, true);
     // on phones the dock repeats the result card, so hide it while the card is on screen
     if ('IntersectionObserver' in window) new IntersectionObserver(es => { $('.dock').classList.toggle('away', es[0].isIntersecting); }).observe($('#big'));
   });
