@@ -254,6 +254,16 @@
 
   // ---------- search ----------
   let catalog = [];
+  // catalog entries whose code + title contain every word typed; codes starting with the query first
+  function match(q, n) {
+    q = q.trim().toUpperCase();
+    if (!q) return [];
+    const words = q.split(/\s+/);
+    return catalog.filter(c => {
+      const hay = (c.c + ' ' + c.t).toUpperCase();
+      return words.every(w => hay.includes(w));
+    }).sort((a, b) => (b.c.startsWith(q) - a.c.startsWith(q)) || a.c.localeCompare(b.c)).slice(0, n);
+  }
   function addSubject(c) {
     if (isLocked()) { vcToast('Your subjects are locked for now'); return; }
     if (subjects().some(s => s.c === c.c)) { vcToast(c.c + ' is already added'); return; }
@@ -275,11 +285,7 @@
     function show() {
       const q = input.value.trim().toUpperCase();
       if (!q) { close(); return; }
-      const words = q.split(/\s+/);
-      hits = catalog.filter(c => {
-        const hay = (c.c + ' ' + c.t).toUpperCase();
-        return words.every(w => hay.includes(w));
-      }).sort((a, b) => (b.c.startsWith(q) - a.c.startsWith(q)) || a.c.localeCompare(b.c)).slice(0, 12);
+      hits = match(q, 12);
       const added = new Set(subjects().map(s => s.c));
       box.innerHTML = hits.length
         ? hits.map((c, i) => `<button type="button" role="option" class="result${added.has(c.c) ? ' added' : ''}" data-i="${i}" id="opt-${i}"><span class="code">${esc(c.c)}</span><span class="title">${esc(c.t)}</span>${c.cur === 'old' ? '<span class="pill" title="2021–2025 curriculum">Old</span>' : ''}<span class="pill">${TYPE[c.y] || c.y} · ${fmt(c.cr)}</span></button>`).join('')
@@ -314,11 +320,29 @@
     if (prefill && /^[A-Za-z]{2,6}\d{2,4}[A-Za-z]?$/.test(prefill)) f.code.value = prefill.toUpperCase();
     else if (prefill) f.title.value = prefill;
     $('#custom-err').textContent = '';
+    f.code.dispatchEvent(new Event('input'));
     d.showModal();
   }
   function bindCustom() {
     const d = $('#custom'), f = d.querySelector('form');
     document.querySelectorAll('[data-open-custom]').forEach(b => b.addEventListener('click', () => openCustom('')));
+    // suggest subjects from the list while typing, since few people remember exact codes and titles
+    const box = $('#custom-suggest'), list = box.querySelector('.suggest-list');
+    let sug = [];
+    const suggest = () => {
+      const q = (f.code.value + ' ' + f.title.value).trim();
+      sug = q.length >= 2 ? match(q, 6) : [];
+      const added = new Set(subjects().map(s => s.c));
+      list.innerHTML = sug.map((c, i) => `<button type="button" class="result${added.has(c.c) ? ' added' : ''}" data-sug="${i}"><span class="code">${esc(c.c)}</span><span class="title">${esc(c.t)}</span><span class="pill">${TYPE[c.y] || c.y} · ${fmt(c.cr)}</span></button>`).join('');
+      box.hidden = !sug.length;
+    };
+    f.code.addEventListener('input', suggest);
+    f.title.addEventListener('input', suggest);
+    d.addEventListener('close', () => { box.hidden = true; });
+    list.addEventListener('click', e => {
+      const b = e.target.closest('[data-sug]'); if (!b) return;
+      d.close(); addSubject(sug[+b.dataset.sug]);
+    });
     f.addEventListener('submit', e => {
       if (e.submitter && e.submitter.value === 'cancel') return;
       e.preventDefault();
