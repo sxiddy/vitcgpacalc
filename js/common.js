@@ -45,4 +45,6 @@
     timer = setTimeout(() => t.classList.remove('show'), 2600);
   }
   window.vcToast = toast;
+  // Cancel buttons are type=button so pressing Enter in a field submits, not cancels
+  document.addEventListener('click', e => { const b = e.target.closest('dialog [data-close]'); if (b) b.closest('dialog').close(); });
 })();

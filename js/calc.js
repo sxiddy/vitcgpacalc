@@ -121,6 +121,57 @@
     return { gpa: cr ? r2(pts / cr) : null, credits: total, gradedCredits: cr, graded };
   }
 
-  const VC = { GRADES, POINTS, LIMITS, num, theory, lab, single, checkRanges, gradeOf, splitCredits, parts, gpa };
+  // every graded course in a semester, for CGPA: [{ key, credits, grade }]; key is code + part so ETH and ELA stay apart
+  function courses(subjects) {
+    const out = [];
+    subjects.forEach(s => parts(s).forEach(p => { if (p.grade) out.push({ key: s.c + '|' + p.key, credits: p.credits, grade: p.grade }); }));
+    return out;
+  }
+
+  // semester credit rule: over 35 is refused, under 20 or over 30 needs a second look
+  const SEM_CREDITS = { low: 20, high: 30, max: 35 };
+  function semCredits(v) {
+    const n = num(v);
+    if (n === null || Number.isNaN(n) || n <= 0) return 'invalid';
+    if (n > SEM_CREDITS.max) return 'too-many';
+    if (n < SEM_CREDITS.low) return 'low';
+    if (n > SEM_CREDITS.high) return 'high';
+    return 'ok';
+  }
+
+  // a GPA or CGPA typed by hand: 0 to 10
+  function checkGpa(v) {
+    const n = num(v);
+    if (n === null) return '';
+    if (Number.isNaN(n) || n < 0 || n > 10) return 'must be between 0 and 10';
+    return '';
+  }
+
+  // CGPA = sum(credits x points) / sum(credits) over every course, oldest semester first.
+  // blocks: { gpa, credits } when only a semester GPA is known, or { courses } from courses().
+  // A course taken again later replaces the earlier attempt. cleared: [{ credits }] failed courses
+  // inside the { gpa, credits } blocks that were passed later; their F (0 points) stops counting.
+  function cgpa(blocks, cleared) {
+    let pts = 0, cr = 0, replaced = 0;
+    const seen = {};
+    blocks.forEach(b => {
+      if (b.courses) {
+        b.courses.forEach(c => {
+          if (!c.grade || !(c.credits > 0)) return;
+          const p = c.credits * POINTS[c.grade];
+          if (seen[c.key]) { pts -= seen[c.key].p; cr -= seen[c.key].cr; replaced++; }
+          seen[c.key] = { p, cr: c.credits };
+          pts += p; cr += c.credits;
+        });
+      } else if (b.credits > 0 && b.gpa !== null && b.gpa !== undefined) {
+        pts += b.gpa * b.credits; cr += b.credits;
+      }
+    });
+    (cleared || []).forEach(c => { if (c.credits > 0) cr -= c.credits; });
+    cr = r2(cr);
+    return { cgpa: cr > 0 ? r2(pts / cr) : null, credits: cr, points: r2(pts), replaced };
+  }
+
+  const VC = { GRADES, POINTS, LIMITS, SEM_CREDITS, num, theory, lab, single, checkRanges, gradeOf, splitCredits, parts, gpa, courses, semCredits, checkGpa, cgpa };
   if (typeof module !== 'undefined' && module.exports) module.exports = VC; else root.VC = VC;
 })(this);

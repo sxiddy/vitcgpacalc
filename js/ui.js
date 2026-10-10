@@ -33,7 +33,7 @@
   const byId = id => subjects().find(s => s.id === id);
 
   // ---------- confirming subjects (locked for 12 hours after confirming) ----------
-  const LOCK_MS = 12 * 60 * 60 * 1000, CREDITS = { low: 20, high: 30, max: 35 };
+  const LOCK_MS = 12 * 60 * 60 * 1000, CREDITS = VC.SEM_CREDITS;
   const lock = () => { state.locks = state.locks || {}; return state.locks[state.sem] || { confirmed: false, until: 0 }; };
   const isLocked = () => lock().until > Date.now();
   const totalCredits = () => subjects().reduce((n, s) => n + (Number(s.cr) || 0), 0);
