@@ -28,6 +28,8 @@
   const SEMS = semesters();
   let state = { sem: SEMS.def, sems: {} };
   { const s = vcData.get('vc-state'); if (s && s.sems) state = s; }
+  // theory + lab is always shown combined; older saves may still say separate
+  Object.values(state.sems).forEach(list => list.forEach(x => { x.sep = false; }));
   const save = () => vcData.set('vc-state', state);
   const subjects = () => (state.sems[state.sem] = state.sems[state.sem] || []);
   const byId = id => subjects().find(s => s.id === id);
@@ -99,7 +101,7 @@
     return `<article class="card" data-id="${s.id}">
       <div class="card-head"><div class="meta"><div class="code">${esc(s.c)}</div><h2>${esc(s.t)}</h2>
         <div class="tags"><span class="pill">${TYPE[s.y] || s.y}</span><span class="pill">${fmt(s.cr)} credit${s.cr === 1 ? '' : 's'}</span>
-        ${s.y === 'ETL' ? `<div class="seg" role="group" aria-label="How to show theory and lab"><button type="button" data-act="mode" data-sep="0" aria-pressed="${!s.sep}">Combined</button><button type="button" data-act="mode" data-sep="1" aria-pressed="${!!s.sep}">Separate</button></div>` : ''}</div></div>
+        </div></div>
         <button type="button" class="icon-btn" data-act="remove" aria-label="Remove ${esc(s.c)}"${isLocked() ? ' hidden' : ''}>${ICON.x}</button></div>
       <div class="card-body">
         ${theory ? `<div class="marks">${markBox(s, 'cat1', 'CAT-1', 15)}${markBox(s, 'cat2', 'CAT-2', 15)}${markBox(s, 'fat', 'FAT', 40)}</div>${fold(s, 'quiz')}` : ''}
@@ -231,11 +233,6 @@
         card.remove(); $('#empty').hidden = subjects().length > 0; renderSummary(); save();
         vcToast(s.c + ' removed');
         return;
-      }
-      if (act === 'mode') {
-        s.sep = b.dataset.sep === '1';
-        if (s.sep && VC.checkRanges(s.gl).empty) s.gl = Object.assign({}, s.g); // lab starts with the theory ranges
-        rerenderCard(card, s);
       }
       if (act === 'add' || act === 'rm') {
         const key = b.dataset.key;

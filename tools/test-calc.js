@@ -15,9 +15,8 @@ eq('ETL total = 86*.75 + 92*.25', p.value, 87.5);
 eq('ETL grade S', p.grade, 'S');
 eq('ETL scaled parts', [p.thScaled, p.labScaled], [64.5, 23]);
 
-const sep = VC.parts(Object.assign({}, etl, { sep: true, gl: ranges }));
-eq('separate credits 3 + 1', sep.map(x => x.credits), [3, 1]);
-eq('separate grades', sep.map(x => x.grade), ['S', 'S']);
+const old = VC.parts(Object.assign({}, etl, { sep: true, gl: ranges })); // older saves may say separate
+eq('theory + lab is always one combined result', [old.length, old[0].value, old[0].credits], [1, 87.5, 4]);
 eq('split L2 P4 -> 2 + 2', VC.splitCredits({ cr: 4, l: 2, tu: 0, p: 4 }), { th: 2, lab: 2 });
 
 eq('no ranges -> no grade', VC.parts(Object.assign({}, etl, { g: {} }))[0].grade, null);
@@ -45,7 +44,6 @@ eq('GPA still counts their credits in the total', VC.gpa([etl, Object.assign({},
 const fail = Object.assign({}, th, { c: 'BMAT101', cat1: 5, cat2: 5, fat: 10, quiz: quiz(2, 2, 2) }); // 26 -> F
 eq('F subject', VC.parts(fail)[0].grade, 'F');
 eq('F counts 0 points but its credits count: (4*10 + 4*0) / 8', VC.gpa([etl, fail]).gpa, 5);
-eq('separate ETL credits weighted 3 + 1', VC.gpa([Object.assign({}, etl, { sep: true, gl: { S: 95, A: 93, B: 92, C: 91, D: 90, E: 89 } })]).gpa, 9.5); // ETH 86 S (3cr), ELA 92 B (1cr): (30 + 8) / 4
 eq('no subjects -> no GPA', VC.gpa([]).gpa, null);
 
 // ---------- courses() ----------

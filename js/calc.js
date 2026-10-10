@@ -95,13 +95,7 @@
     if (y === 'LO') { const l = lab(s); return [{ key: 'all', label: 'Lab', value: l.value, credits: s.cr, grade: gradeOf(l.value, s.g), errs: l.errs, lab: l }]; }
     if (y === 'ETL') {
       const t = theory(s), l = lab(s);
-      if (s.sep) {
-        const c = splitCredits(s);
-        return [
-          { key: 'th', label: 'Theory (ETH)', value: t.value, credits: c.th, grade: gradeOf(t.value, s.g), errs: t.errs, theory: t },
-          { key: 'lab', label: 'Lab (ELA)', value: l.value, credits: c.lab, grade: gradeOf(l.value, s.gl), errs: l.errs, lab: l }
-        ];
-      }
+      // theory + lab is always one combined course: theory scaled to 75, lab to 25
       const ok = t.value !== null && l.value !== null;
       const value = ok ? r2(t.value * 0.75 + l.value * 0.25) : null;
       return [{ key: 'all', label: 'Total', value, credits: s.cr, grade: gradeOf(value, s.g), errs: t.errs.concat(l.errs), theory: t, lab: l,
