@@ -251,8 +251,8 @@ details.fold[open] > .fold-body { animation: rise .25s var(--ease); }
 .fold-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .fold-foot .note { font-size: 12.5px; color: var(--text-2); }
 
-.ranges { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 560px) { .ranges { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
+.ranges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 560px) { .ranges { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .range { display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 4px; transition: border-color .15s; }
 .range:focus-within { border-color: var(--blue); }
 .range label { font-family: var(--font-display); font-weight: 800; font-size: 17px; }
@@ -613,5 +613,3 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border-radius
 .card-body, .fold-body, .cg-card [data-pane] { grid-template-columns: minmax(0, 1fr); }
 .sem-list { grid-template-columns: minmax(0, 1fr); }
 .sem-log, .log li { min-width: 0; }
-.range.f output { font-family: var(--font-display); font-weight: 700; font-size: 18px; height: 28px; line-height: 28px; color: var(--text-2); }
-.range.f { background: transparent; border-style: dashed; }
