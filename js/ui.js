@@ -79,7 +79,8 @@
 
   function rangeInputs(s, key) {
     return `<div class="ranges" data-ranges="${key}">` + GRADE_KEYS.map(k =>
-      `<div class="range"><label for="${s.id}-${key}-${k}" style="color:var(--g-${k})">${k}</label><input id="${s.id}-${key}-${k}" data-f="${key}.${k}" value="${esc(s[key][k])}" inputmode="decimal" placeholder="–"><small>and above</small></div>`).join('') + `</div>`;
+      `<div class="range"><label for="${s.id}-${key}-${k}" style="color:var(--g-${k})">${k}</label><input id="${s.id}-${key}-${k}" data-f="${key}.${k}" value="${esc(s[key][k])}" inputmode="decimal" placeholder="–"><small>and above</small></div>`).join('') +
+      `<div class="range f"><label style="color:var(--g-F)">F</label><output data-fout="${key}">–</output><small>below E</small></div></div>`;
   }
 
   function rangesFold(s) {
@@ -158,6 +159,8 @@
     const keys = s.y === 'ETL' && s.sep ? ['g', 'gl'] : ['g'];
     const rs = keys.map(k => VC.checkRanges(s[k]));
     $('[data-err="ranges"]', card).textContent = rs.map(r => r.err).filter(Boolean)[0] || '';
+    // F is everything below E, so it shows E's cut-off instead of having its own input
+    keys.forEach(k => { const o = card.querySelector(`[data-fout="${k}"]`); if (o) { const e = VC.num(s[k].E); o.textContent = e === null || Number.isNaN(e) ? '–' : '< ' + e; } });
     keys.forEach((k, i) => card.querySelectorAll(`[data-ranges="${k}"] .range`).forEach(el => el.classList.toggle('bad', !!rs[i].err)));
     $('[data-sum="ranges"]', card).textContent = rs.every(r => r.ok) ? 'Set' : rs.some(r => r.err) ? 'Check' : 'Not set';
   }

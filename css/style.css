@@ -229,8 +229,8 @@ details.fold[open] > summary .chev { transform: rotate(180deg); }
 .fold-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .fold-foot .note { font-size: 12.5px; color: var(--text-2); }
 
-.ranges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 560px) { .ranges { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.ranges { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 560px) { .ranges { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 .range { display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 4px; }
 .range label { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 .range input { width: 100%; text-align: center; border: 0; background: transparent; font-family: var(--font-display); font-weight: 600; font-size: 16px; outline: none; height: 26px; }
@@ -470,3 +470,7 @@ dialog form > *, .suggest-list .result { min-width: 0; }
 .btn.danger:hover { background: var(--danger-soft); color: var(--danger); }
 .cg-fold > summary .chev { margin-left: auto; }
 .cg-fold > summary .sum + .chev { margin-left: 0; }
+
+/* F box in grade ranges: filled in from E, not typed */
+.range.f { background: transparent; border-style: dashed; }
+.range.f output { font-family: var(--font-display); font-weight: 600; font-size: 16px; height: 26px; line-height: 26px; color: var(--text-2); }
