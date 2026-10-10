@@ -79,14 +79,14 @@
 
   function rangeInputs(s, key) {
     return `<div class="ranges" data-ranges="${key}">` + GRADE_KEYS.map(k =>
-      `<div class="range"><label for="${s.id}-${key}-${k}" style="color:var(--g-${k})">${k}</label><input id="${s.id}-${key}-${k}" data-f="${key}.${k}" value="${esc(s[key][k])}" inputmode="decimal" placeholder="–"><small>and above</small></div>`).join('') +
-      `<div class="range f"><label style="color:var(--g-F)">F</label><output data-fout="${key}">–</output><small>below E</small></div></div>`;
+      `<div class="range"><label for="${s.id}-${key}-${k}" style="color:var(--g-${k})">${k}</label><input id="${s.id}-${key}-${k}" data-f="${key}.${k}" value="${esc(s[key][k])}" inputmode="decimal" placeholder="from"><small data-to="${key}.${k}">–</small></div>`).join('') +
+      `<div class="range f"><label style="color:var(--g-F)">F</label><output data-fout="${key}">–</output><small data-to="${key}.F">–</small></div></div>`;
   }
 
   function rangesFold(s) {
     const two = s.y === 'ETL' && s.sep;
     return `<details class="fold" data-fold="ranges"><summary>Grade ranges<span class="sum" data-sum="ranges"></span>${ICON.chev}</summary>
-      <div class="fold-body"><p class="note" style="margin:0;font-size:12.5px;color:var(--text-2)">Enter the lowest mark for each grade in your class. Anything below E is F.</p>
+      <div class="fold-body"><p class="note" style="margin:0;font-size:12.5px;color:var(--text-2)">Type the mark where each grade starts in your class. The full range for each grade shows underneath, so you can check it against what your faculty shared.</p>
       ${two ? '<p class="range-part">Theory (ETH)</p>' : ''}${rangeInputs(s, 'g')}
       ${two ? '<p class="range-part">Lab (ELA)</p>' + rangeInputs(s, 'gl') : ''}
       <p class="err" data-err="ranges"></p>
@@ -160,7 +160,20 @@
     const rs = keys.map(k => VC.checkRanges(s[k]));
     $('[data-err="ranges"]', card).textContent = rs.map(r => r.err).filter(Boolean)[0] || '';
     // F is everything below E, so it shows E's cut-off instead of having its own input
-    keys.forEach(k => { const o = card.querySelector(`[data-fout="${k}"]`); if (o) { const e = VC.num(s[k].E); o.textContent = e === null || Number.isNaN(e) ? '–' : '< ' + e; } });
+    keys.forEach(k => {
+      const o = card.querySelector(`[data-fout="${k}"]`); if (o) o.textContent = '0';
+      // each grade runs from its own start up to just below the next grade's start (S goes to 100)
+      const order = ['S', 'A', 'B', 'C', 'D', 'E', 'F'];
+      order.forEach((g, i) => {
+        const el = card.querySelector(`[data-to="${k}.${g}"]`); if (!el) return;
+        const from = g === 'F' ? 0 : VC.num(s[k][g]);
+        const above = i === 0 ? 100 : VC.num(s[k][order[i - 1]]);
+        const ok = n => n !== null && !Number.isNaN(n);
+        if (!ok(from) || !ok(above)) { el.textContent = '–'; return; }
+        const to = i === 0 ? 100 : Math.round((above - 0.01) * 100) / 100;
+        el.textContent = to < from ? 'check' : from + ' to ' + to;
+      });
+    });
     keys.forEach((k, i) => card.querySelectorAll(`[data-ranges="${k}"] .range`).forEach(el => el.classList.toggle('bad', !!rs[i].err)));
     $('[data-sum="ranges"]', card).textContent = rs.every(r => r.ok) ? 'Set' : rs.some(r => r.err) ? 'Check' : 'Not set';
   }
