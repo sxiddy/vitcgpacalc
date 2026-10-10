@@ -126,7 +126,7 @@
       const g = p.grade
         ? `<div class="grade" style="--gc:var(--g-${p.grade})" aria-label="Grade ${p.grade}">${p.grade}</div>`
         : `<div class="grade none">Add grade ranges</div>`;
-      return `<div class="result-row">${ring(p.value, p.grade)}<div class="info"><div class="total">${fmt(p.value)} <i>/ 100</i></div><div class="split">${split} · ${fmt(p.credits)} cr</div></div>${g}</div>`;
+      return `<div class="result-row">${ring(p.value, p.grade)}<div class="info"><div class="total">${fmt(p.value)} <i>/ 100</i></div><div class="split">${split} · ${fmt(p.credits)} ${p.credits === 1 ? 'Credit' : 'Credits'}</div></div>${g}</div>`;
     }).join('');
   }
 
