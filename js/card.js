@@ -8,7 +8,7 @@
     gold: '#e8b84a', gold2: '#f6d98b', blue: '#4c86ff', blue2: '#8fb3ff', ink: '#1a1405'
   };
   const GRADE = { S: '#e8b84a', A: '#4c86ff', B: '#2fc4a8', C: '#9d7bff', D: '#f2a23c', E: '#f07a4a', F: '#ff5d5d' };
-  const DISPLAY = '"Space Grotesk", system-ui, sans-serif', BODY = '"Inter", system-ui, sans-serif';
+  const DISPLAY = '"Bricolage Grotesque", system-ui, sans-serif', BODY = '"Inter", system-ui, sans-serif';
 
   // ---------- helpers ----------
   const font = (ctx, px, weight, fam) => { ctx.font = `${weight || 400} ${px}px ${fam || BODY}`; };
@@ -341,7 +341,7 @@
   // fonts must be loaded before drawing or the canvas falls back to system fonts
   function ready() {
     if (!root.document || !document.fonts) return Promise.resolve();
-    return Promise.all(['700 100px "Space Grotesk"', '600 100px "Space Grotesk"', '500 100px "Space Grotesk"', '400 40px "Inter"', '500 40px "Inter"', '600 40px "Inter"']
+    return Promise.all(['700 100px "Bricolage Grotesque"', '600 100px "Bricolage Grotesque"', '500 100px "Bricolage Grotesque"', '400 40px "Inter"', '500 40px "Inter"', '600 40px "Inter"']
       .map(f => document.fonts.load(f).catch(() => null))).then(() => null);
   }
 
