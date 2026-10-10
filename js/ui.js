@@ -269,7 +269,7 @@
       }).sort((a, b) => (b.c.startsWith(q) - a.c.startsWith(q)) || a.c.localeCompare(b.c)).slice(0, 12);
       const added = new Set(subjects().map(s => s.c));
       box.innerHTML = hits.length
-        ? hits.map((c, i) => `<button type="button" role="option" class="result${added.has(c.c) ? ' added' : ''}" data-i="${i}" id="opt-${i}"><span class="code">${esc(c.c)}</span><span class="title">${esc(c.t)}</span><span class="pill">${TYPE[c.y] || c.y} · ${fmt(c.cr)}</span></button>`).join('')
+        ? hits.map((c, i) => `<button type="button" role="option" class="result${added.has(c.c) ? ' added' : ''}" data-i="${i}" id="opt-${i}"><span class="code">${esc(c.c)}</span><span class="title">${esc(c.t)}</span>${c.cur === 'old' ? '<span class="pill" title="2021–2025 curriculum">Old</span>' : ''}<span class="pill">${TYPE[c.y] || c.y} · ${fmt(c.cr)}</span></button>`).join('')
         : `<div class="none">No subject matches “${esc(input.value.trim())}”.<br><button type="button" class="btn btn-sm" data-custom>${ICON.plus}Add it yourself</button></div>`;
       box.hidden = false; input.setAttribute('aria-expanded', 'true'); active = -1;
     }
