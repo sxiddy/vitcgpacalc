@@ -294,3 +294,12 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
   .item .rm { width: 30px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* confirm subjects bar */
+.lockbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; background: var(--gold-soft); border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+.lockbar[hidden] { display: none; }
+.lockbar div { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 220px; }
+.lockbar b { font-family: var(--font-display); font-weight: 600; }
+.lockbar span { font-size: 13px; color: var(--text-2); }
+.lockbar.locked, .lockbar.done { background: var(--blue-soft); border-color: color-mix(in srgb, var(--blue) 30%, transparent); }
+.search-box:has(input:disabled) { opacity: 0.6; }

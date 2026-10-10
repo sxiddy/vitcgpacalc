@@ -32,6 +32,14 @@
   const subjects = () => (state.sems[state.sem] = state.sems[state.sem] || []);
   const byId = id => subjects().find(s => s.id === id);
 
+  // ---------- confirming subjects (locked for 12 hours after confirming) ----------
+  const LOCK_MS = 12 * 60 * 60 * 1000, CREDITS = { low: 20, high: 30, max: 35 };
+  const lock = () => { state.locks = state.locks || {}; return state.locks[state.sem] || { confirmed: false, until: 0 }; };
+  const isLocked = () => lock().until > Date.now();
+  const totalCredits = () => subjects().reduce((n, s) => n + (Number(s.cr) || 0), 0);
+  // any change to the subject list after the lock ends needs a fresh confirm
+  function unconfirm() { if (lock().confirmed) { state.locks[state.sem] = { confirmed: false, until: 0 }; } }
+
   function newSubject(c) {
     const s = { id: Math.random().toString(36).slice(2, 9), c: c.c, t: c.t, y: c.y, cr: Number(c.cr) || 0, l: c.l || 0, tu: c.tu || 0, p: c.p || 0, custom: !!c.custom, g: {}, gl: {}, sep: false };
     if (s.y === 'TH' || s.y === 'ETL') { s.cat1 = ''; s.cat2 = ''; s.fat = ''; s.quiz = [1, 2, 3].map(i => ({ n: 'Quiz ' + i, s: '', m: 10 })); }
@@ -91,7 +99,7 @@
       <div class="card-head"><div class="meta"><div class="code">${esc(s.c)}</div><h2>${esc(s.t)}</h2>
         <div class="tags"><span class="pill">${TYPE[s.y] || s.y}</span><span class="pill">${fmt(s.cr)} credit${s.cr === 1 ? '' : 's'}</span>
         ${s.y === 'ETL' ? `<div class="seg" role="group" aria-label="How to show theory and lab"><button type="button" data-act="mode" data-sep="0" aria-pressed="${!s.sep}">Combined</button><button type="button" data-act="mode" data-sep="1" aria-pressed="${!!s.sep}">Separate</button></div>` : ''}</div></div>
-        <button type="button" class="icon-btn" data-act="remove" aria-label="Remove ${esc(s.c)}">${ICON.x}</button></div>
+        <button type="button" class="icon-btn" data-act="remove" aria-label="Remove ${esc(s.c)}"${isLocked() ? ' hidden' : ''}>${ICON.x}</button></div>
       <div class="card-body">
         ${theory ? `<div class="marks">${markBox(s, 'cat1', 'CAT-1', 15)}${markBox(s, 'cat2', 'CAT-2', 15)}${markBox(s, 'fat', 'FAT', 40)}</div>${fold(s, 'quiz')}` : ''}
         ${lab ? fold(s, 'lab') : ''}
@@ -160,18 +168,19 @@
     $('#empty').hidden = subs.length > 0;
     list.innerHTML = subs.map(cardHTML).join('');
     subs.forEach(s => refresh(list.querySelector(`[data-id="${s.id}"]`), s));
-    renderSummary();
+    renderSummary(); renderLock();
   }
 
   function renderSummary() {
     const subs = subjects();
     const g = VC.gpa(subs);
+    if (!lock().confirmed) g.gpa = null;
     const gpaText = g.gpa === null ? '–' : g.gpa.toFixed(2);
     document.querySelectorAll('[data-gpa]').forEach(el => { el.textContent = gpaText; el.classList.toggle('muted', g.gpa === null); });
     document.querySelectorAll('[data-credits]').forEach(el => { el.textContent = fmt(g.credits); });
     document.querySelectorAll('[data-count]').forEach(el => { el.textContent = subs.length; });
     document.querySelectorAll('[data-count-label]').forEach(el => { el.textContent = subs.length + (subs.length === 1 ? ' subject' : ' subjects'); });
-    const note = !subs.length ? 'Add subjects to see your GPA' : g.gpa === null ? 'Add grade ranges to see your GPA' : g.gradedCredits < g.credits ? `Based on ${fmt(g.gradedCredits)} of ${fmt(g.credits)} credits` : 'All subjects graded';
+    const note = !subs.length ? 'Add subjects to see your GPA' : !lock().confirmed ? 'Confirm your subjects to see your GPA' : g.gpa === null ? 'Add grade ranges to see your GPA' : g.gradedCredits < g.credits ? `Based on ${fmt(g.gradedCredits)} of ${fmt(g.credits)} credits` : 'All subjects graded';
     document.querySelectorAll('[data-gpa-note]').forEach(el => { el.textContent = note; });
     $('#summary-list').innerHTML = subs.map(s => {
       const ps = VC.parts(s);
@@ -200,6 +209,8 @@
       const b = e.target.closest('[data-act]'); if (!b) return;
       const card = b.closest('.card'), s = byId(card.dataset.id), act = b.dataset.act;
       if (act === 'remove') {
+        if (isLocked()) { vcToast('Your subjects are locked for now'); return; }
+        unconfirm(); renderLock();
         state.sems[state.sem] = subjects().filter(x => x !== s);
         card.remove(); $('#empty').hidden = subjects().length > 0; renderSummary(); save();
         vcToast(s.c + ' removed');
@@ -244,13 +255,15 @@
   // ---------- search ----------
   let catalog = [];
   function addSubject(c) {
+    if (isLocked()) { vcToast('Your subjects are locked for now'); return; }
     if (subjects().some(s => s.c === c.c)) { vcToast(c.c + ' is already added'); return; }
+    unconfirm();
     const s = newSubject(c);
     subjects().push(s); save();
     $('#empty').hidden = true;
     const tmp = document.createElement('div'); tmp.innerHTML = cardHTML(s);
     const card = tmp.firstElementChild;
-    $('#cards').appendChild(card); refresh(card, s); renderSummary();
+    $('#cards').appendChild(card); refresh(card, s); renderSummary(); renderLock();
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     const first = card.querySelector('input[data-f]'); if (first && matchMedia('(pointer: fine)').matches) first.focus({ preventScroll: true });
   }
@@ -320,6 +333,60 @@
     });
   }
 
+  function renderLock() {
+    const bar = $('#lockbar'), n = subjects().length, cr = totalCredits(), L = lock();
+    const search = $('#search');
+    search.disabled = isLocked();
+    search.placeholder = isLocked() ? 'Subjects are locked for this semester' : 'Search by code or name, e.g. BACSE103';
+    document.querySelectorAll('[data-open-custom]').forEach(b => { b.hidden = isLocked(); });
+    if (!n) { bar.hidden = true; return; }
+    bar.hidden = false;
+    if (isLocked()) {
+      const t = new Date(L.until).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+      bar.className = 'lockbar locked';
+      bar.innerHTML = `<div><b>Subjects confirmed</b><span>${n} subject${n === 1 ? '' : 's'} · ${fmt(cr)} credits. You can change them after ${t}.</span></div>`;
+    } else if (L.confirmed) {
+      bar.className = 'lockbar done';
+      bar.innerHTML = `<div><b>Subjects confirmed</b><span>${n} subject${n === 1 ? '' : 's'} · ${fmt(cr)} credits. Adding or removing a subject means confirming again.</span></div>`;
+    } else {
+      bar.className = 'lockbar';
+      bar.innerHTML = `<div><b>${n} subject${n === 1 ? '' : 's'} · ${fmt(cr)} credits</b><span>Confirm your subjects to see your GPA. Most semesters are ${CREDITS.low}–${CREDITS.high} credits.</span></div><button type="button" class="btn btn-sm btn-gold" data-confirm-subjects>Confirm subjects</button>`;
+    }
+  }
+
+  // generic yes/no dialog -> Promise<boolean>
+  function ask(title, msg, yes, danger) {
+    const d = $('#ask');
+    $('#ask-title').textContent = title; $('#ask-msg').textContent = msg;
+    const ok = $('#ask-ok'); ok.textContent = yes || 'Continue'; ok.hidden = !!danger;
+    $('#ask-cancel').textContent = danger ? 'Got it' : 'Go back';
+    d.showModal();
+    // resolve from the button press itself; the dialog 'close' event isn't fired reliably in every browser
+    return new Promise(res => {
+      const form = d.querySelector('form');
+      const done = v => { form.removeEventListener('submit', onSubmit); d.removeEventListener('cancel', onCancel); if (d.open) d.close(); res(v); };
+      const onSubmit = e => { e.preventDefault(); done(!!e.submitter && e.submitter.value === 'ok'); };
+      const onCancel = e => { e.preventDefault(); done(false); };
+      form.addEventListener('submit', onSubmit);
+      d.addEventListener('cancel', onCancel);
+    });
+  }
+
+  async function confirmSubjects() {
+    const cr = totalCredits();
+    if (cr > CREDITS.max) { await ask('Too many credits', `You've added ${fmt(cr)} credits. A semester can't be more than ${CREDITS.max} credits, so remove some subjects and try again.`, '', true); return; }
+    if (cr < CREDITS.low || cr > CREDITS.high) {
+      const low = cr < CREDITS.low;
+      if (!await ask(low ? 'Fewer credits than usual' : 'More credits than usual', `You've added ${fmt(cr)} credits. Most semesters are ${CREDITS.low}–${CREDITS.high} credits. Are these really all your subjects?`, 'Yes, they are')) return;
+    }
+    const sem = $('#semester').selectedOptions[0].textContent;
+    if (!await ask('Confirm your subjects', `${subjects().length} subjects, ${fmt(cr)} credits for ${sem}. After confirming you can't add or remove subjects for 12 hours. You can still change your marks.`, 'Confirm')) return;
+    state.locks = state.locks || {};
+    state.locks[state.sem] = { confirmed: true, until: Date.now() + LOCK_MS };
+    save(); renderCards();
+    vcToast('Subjects confirmed');
+  }
+
   // ---------- semester ----------
   function bindSemester() {
     const sel = $('#semester');
@@ -330,6 +397,9 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     bindSemester(); bindCards(); bindSearch(); bindCustom(); renderCards();
+    $('#lockbar').addEventListener('click', e => { if (e.target.closest('[data-confirm-subjects]')) confirmSubjects(); });
+    let wasLocked = isLocked();
+    setInterval(() => { if (wasLocked && !isLocked()) renderCards(); wasLocked = isLocked(); }, 30000);
     fetch('data/subjects.json').then(r => r.json()).then(list => { catalog = list.filter(c => c.y !== 'PJT'); }).catch(() => vcToast("Couldn't load the subject list. You can still add subjects yourself."));
   });
 })();

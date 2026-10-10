@@ -55,6 +55,8 @@
       <div class="results" id="results" role="listbox" hidden></div>
     </div>
 
+    <div class="lockbar" id="lockbar" role="status" hidden></div>
+
     <div class="empty" id="empty">
       <h2>Add your first subject</h2>
       <p>Search above by course code or name. Can't find it? You can add it yourself.</p>
@@ -102,6 +104,17 @@
     <div class="actions">
       <button class="btn btn-ghost" value="cancel" formnovalidate>Cancel</button>
       <button class="btn btn-primary" value="ok">Add subject</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="ask" aria-labelledby="ask-title">
+  <form method="dialog">
+    <h2 id="ask-title"></h2>
+    <p id="ask-msg" style="margin:0;color:var(--text-2)"></p>
+    <div class="actions">
+      <button class="btn btn-ghost" value="cancel" id="ask-cancel">Go back</button>
+      <button class="btn btn-primary" value="ok" id="ask-ok">Continue</button>
     </div>
   </form>
 </dialog>
