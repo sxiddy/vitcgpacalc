@@ -534,3 +534,6 @@ dialog form > *, .suggest-list .result { min-width: 0; }
 .legal h2:first-child { margin-top: 0; }
 .legal p { color: var(--text-2); margin: 0 0 10px; line-height: 1.6; }
 .legal a, .footer a { color: inherit; text-decoration: underline; }
+
+/* Google's button frame is light; matching its color scheme stops the browser painting a white box behind it in dark mode */
+#gbtn iframe { color-scheme: light; }
