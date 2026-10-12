@@ -28,7 +28,7 @@
     if (!Object.keys(out.data).length) { toast('Nothing to back up yet'); return; }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
-    a.download = 'vitcgpa-backup-' + out.saved.slice(0, 10) + '.json';
+    a.download = 'markscalc-backup-' + out.saved.slice(0, 10) + '.json';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     toast('Backup downloaded');
@@ -72,7 +72,7 @@
       file.text().then(async text => {
         let b = null;
         try { b = JSON.parse(text); } catch (e) {}
-        if (!validBackup(b)) { toast("That isn't a VIT cgpa backup file"); return; }
+        if (!validBackup(b)) { toast("That isn't a Marks calc backup file"); return; }
         const when = b.saved ? new Date(b.saved).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : 'an earlier date';
         if (!await ask('Restore this backup?', `It's from ${when}. Everything saved on this device now will be replaced by it.`, 'Restore')) return;
         data.clear();
@@ -126,6 +126,13 @@
     timer = setTimeout(() => t.classList.remove('show'), 2600);
   }
   window.vcToast = toast;
+
+  // offline support (sw.js); skipped on file:// and old browsers
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+  addEventListener('offline', () => toast("You're offline. Everything still works and saves on this device."));
+  addEventListener('online', () => toast('Back online'));
   // Cancel buttons are type=button so pressing Enter in a field submits, not cancels
   document.addEventListener('click', e => { const b = e.target.closest('dialog [data-close]'); if (b) b.closest('dialog').close(); });
 })();
