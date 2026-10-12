@@ -527,3 +527,10 @@ dialog form > *, .suggest-list .result { min-width: 0; }
   .top .btn-sm { padding: 0 10px; }
   .top .icon-btn { width: 34px; height: 34px; }
 }
+
+/* privacy and terms */
+.legal { max-width: 760px; padding-bottom: 40px; }
+.legal h2 { font-size: 18px; margin: 22px 0 6px; }
+.legal h2:first-child { margin-top: 0; }
+.legal p { color: var(--text-2); margin: 0 0 10px; line-height: 1.6; }
+.legal a, .footer a { color: inherit; text-decoration: underline; }
