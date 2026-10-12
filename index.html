@@ -48,7 +48,6 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
         <a class="btn" href="#how">How it works</a>
       </div>
-      <p class="live" data-live hidden><i aria-hidden="true"></i><span><b data-live-count>0</b> <span data-live-word>marks</span> calculated so far</span></p>
     </div>
     <div class="demo" aria-hidden="true">
       <div style="font-family:var(--font-display);font-weight:600;font-size:13px;color:var(--gold)">BACSE105</div>
@@ -92,25 +91,5 @@
 </main>
 
 <footer class="footer"><div class="wrap"><span>Made for VIT Vellore students. Not affiliated with VIT.</span><span>vitcgpacalc.vercel.app</span></div></footer>
-<script>
-// live "marks calculated" counter; stays hidden if the server isn't reachable
-(function () {
-  const box = document.querySelector('[data-live]'), n = document.querySelector('[data-live-count]');
-  let shown = -1;
-  async function get(first) {
-    if (document.hidden && first !== true) return;
-    try {
-      const r = await fetch('api/counter');
-      if (!r.ok) return;
-      const c = (await r.json()).count;
-      if (!(c > 0) || c === shown) return;
-      shown = c; n.textContent = c.toLocaleString('en-IN'); document.querySelector('[data-live-word]').textContent = c === 1 ? 'mark' : 'marks'; box.hidden = false;
-      n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump');
-    } catch (e) {}
-  }
-  get(true); setInterval(get, 20000);
-  document.addEventListener('visibilitychange', get);
-})();
-</script>
 </body>
 </html>
