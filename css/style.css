@@ -537,3 +537,6 @@ dialog form > *, .suggest-list .result { min-width: 0; }
 
 /* Google's button frame is light; matching its color scheme stops the browser painting a white box behind it in dark mode */
 #gbtn iframe { color-scheme: light; }
+
+/* CAT /50 and FAT /100 shown as their scaled share of theory */
+.mark .conv { font-size: 11.5px; color: var(--text-3); min-height: 1em; }

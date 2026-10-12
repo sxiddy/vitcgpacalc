@@ -28,8 +28,18 @@
   const SEMS = semesters();
   let state = { sem: SEMS.def, sems: {} };
   { const s = vcData.get('vc-state'); if (s && s.sems) state = s; }
-  // theory + lab is always shown combined; older saves may still say separate
-  Object.values(state.sems).forEach(list => list.forEach(x => { x.sep = false; }));
+  // theory + lab is always shown combined; older saves may still say separate.
+  // Older saves also hold CAT /15 and FAT /40; turn those into the paper marks (CAT /50, FAT /100).
+  function tidy(st) {
+    Object.values(st.sems || {}).forEach(list => list.forEach(x => {
+      x.sep = false;
+      if (x.raw || !('cat1' in x)) return;
+      ['cat1', 'cat2', 'fat'].forEach(k => { const n = VC.num(x[k]); if (n !== null && !Number.isNaN(n)) x[k] = String(Math.round(n * VC.LIMITS.raw[k] / VC.LIMITS[k] * 100) / 100); });
+      x.raw = true;
+    }));
+    return st;
+  }
+  tidy(state);
   const save = () => vcData.set('vc-state', state);
   const subjects = () => (state.sems[state.sem] = state.sems[state.sem] || []);
   const byId = id => subjects().find(s => s.id === id);
@@ -46,7 +56,7 @@
 
   function newSubject(c) {
     const s = { id: Math.random().toString(36).slice(2, 9), c: c.c, t: c.t, y: c.y, cr: Number(c.cr) || 0, l: c.l || 0, tu: c.tu || 0, p: c.p || 0, custom: !!c.custom, g: {}, gl: {}, sep: false };
-    if (s.y === 'TH' || s.y === 'ETL') { s.cat1 = ''; s.cat2 = ''; s.fat = ''; s.quiz = [1, 2, 3].map(i => ({ n: 'Quiz ' + i, s: '', m: 10 })); }
+    if (s.y === 'TH' || s.y === 'ETL') { s.cat1 = ''; s.cat2 = ''; s.fat = ''; s.raw = true; s.quiz = [1, 2, 3].map(i => ({ n: 'Quiz ' + i, s: '', m: 10 })); }
     if (s.y === 'LO' || s.y === 'ETL') s.lab = Array.from({ length: 10 }, (_, i) => ({ n: 'Assignment-' + (i + 1), s: '', m: 10 }));
     if (s.y === 'OC' || s.y === 'SS') s.oc = '';
     return s;
@@ -54,7 +64,7 @@
 
   // ---------- rendering ----------
   function markBox(s, f, label, max) {
-    return `<div class="mark" data-box="${f}"><label for="${s.id}-${f}">${label}</label><div class="val"><input id="${s.id}-${f}" data-f="${f}" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(s[f])}"><span class="max">/ ${max}</span></div></div>`;
+    return `<div class="mark" data-box="${f}"><label for="${s.id}-${f}">${label}</label><div class="val"><input id="${s.id}-${f}" data-f="${f}" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(s[f])}"><span class="max">/ ${max}</span></div>${VC.LIMITS.raw[f] ? `<small class="conv" data-conv="${f}"></small>` : ''}</div>`;
   }
 
   function itemRows(s, key) {
@@ -106,7 +116,7 @@
         </div></div>
         <button type="button" class="icon-btn" data-act="remove" aria-label="Remove ${esc(s.c)}"${isLocked() ? ' hidden' : ''}>${ICON.x}</button></div>
       <div class="card-body">
-        ${theory ? `<div class="marks">${markBox(s, 'cat1', 'CAT-1', 15)}${markBox(s, 'cat2', 'CAT-2', 15)}${markBox(s, 'fat', 'FAT', 40)}</div>${fold(s, 'quiz')}` : ''}
+        ${theory ? `<div class="marks">${markBox(s, 'cat1', 'CAT-1', 50)}${markBox(s, 'cat2', 'CAT-2', 50)}${markBox(s, 'fat', 'FAT', 100)}</div>${fold(s, 'quiz')}` : ''}
         ${lab ? fold(s, 'lab') : ''}
         ${s.y === 'OC' || s.y === 'SS' ? `<div class="marks" style="grid-template-columns:1fr">${markBox(s, 'oc', 'Marks', 100)}</div>` : ''}
         <p class="err" data-err="marks"></p>
@@ -141,9 +151,12 @@
     $('[data-err="marks"]', card).textContent = errs.slice(0, 3).join(' · ');
 
     card.querySelectorAll('[data-box]').forEach(box => {
-      const f = box.dataset.box, max = { cat1: 15, cat2: 15, fat: 40, oc: 100 }[f];
+      const f = box.dataset.box, max = { cat1: 50, cat2: 50, fat: 100, oc: 100 }[f];
       const n = VC.num(s[f]);
-      box.classList.toggle('bad', n !== null && (Number.isNaN(n) || n < 0 || n > max));
+      const bad = n !== null && (Number.isNaN(n) || n < 0 || n > max);
+      box.classList.toggle('bad', bad);
+      const conv = box.querySelector('[data-conv]'), sc = VC.scaled(s, f);
+      if (conv) conv.textContent = sc === null || bad ? '' : fmt(Math.round(sc * 100) / 100) + ' / ' + VC.LIMITS[f];
     });
     ['quiz', 'lab'].forEach(key => {
       if (!s[key]) return;
@@ -459,7 +472,7 @@
     if (!await ask('Confirm your subjects', `${subjects().length} subjects, ${fmt(cr)} credits for ${sem}. After confirming you can't add or remove subjects for 12 hours. You can still change your marks.`, 'Confirm')) return;
     if (window.vcAccount && vcAccount.user) {
       const r = await vcAccount.confirm(state.sem);
-      const s = vcData.get('vc-state'); if (s && s.sems) { s.sem = state.sem; state = s; }
+      const s = vcData.get('vc-state'); if (s && s.sems) { s.sem = state.sem; state = tidy(s); }
       renderCards();
       vcToast(r.ok ? 'Subjects confirmed' : r.msg);
       return;
@@ -490,7 +503,7 @@
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) return;
       const s = vcData.get('vc-state');
-      if (s && s.sems && JSON.stringify(s) !== JSON.stringify(state)) { state = s; $('#semester').value = state.sem; renderCards(); }
+      if (s && s.sems && JSON.stringify(s) !== JSON.stringify(state)) { state = tidy(s); $('#semester').value = state.sem; renderCards(); }
     });
     // marks loaded from the account, or changed on another device
     addEventListener('vc-sync', () => {
@@ -499,7 +512,7 @@
       next.sem = state.sem;
       if (JSON.stringify(next) === JSON.stringify(state)) return;
       const open = openFolds();
-      state = next;
+      state = tidy(next);
       renderCards(); restoreFolds(open);
     });
     fetch('data/subjects.json').then(r => r.json()).then(list => { catalog = list.filter(c => c.y !== 'PJT'); }).catch(() => vcToast("Couldn't load the subject list. You can still add subjects yourself."));

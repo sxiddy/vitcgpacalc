@@ -38,6 +38,10 @@ const g = VC.gpa([etl, Object.assign({}, th, { fat: 20 })]); // 87.5 S (4cr) + 8
 eq('GPA (4*10 + 4*9) / 8', g.gpa, 9.5);
 eq('OC single', VC.parts({ y: 'OC', cr: 2, oc: 65, g: ranges })[0].grade, 'B');
 
+eq('raw CAT /50 and FAT /100 scale to 15 and 40', VC.theory({ raw: true, cat1: 40, cat2: 50, fat: 85, quiz: quiz(10, 10, 10) }).value, 12 + 15 + 34 + 30);
+eq('raw CAT over 50 is an error', VC.theory({ raw: true, cat1: 51, quiz: quiz(1, 1, 1) }).value, null);
+eq('raw CAT 16 is fine (old /15 limit gone)', VC.theory({ raw: true, cat1: 16, quiz: quiz(0, 0, 0) }).value, 4.8);
+
 // ---------- GPA ----------
 eq('GPA skips ungraded subjects', VC.gpa([etl, Object.assign({}, th, { g: {} })]).gpa, 10);
 eq('GPA still counts their credits in the total', VC.gpa([etl, Object.assign({}, th, { g: {} })]).credits, 8);

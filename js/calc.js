@@ -2,7 +2,7 @@
 (function (root) {
   const GRADES = ['S', 'A', 'B', 'C', 'D', 'E', 'F'];
   const POINTS = { S: 10, A: 9, B: 8, C: 7, D: 6, E: 5, F: 0 };
-  const LIMITS = { cat1: 15, cat2: 15, fat: 40, quizTotal: 30, quizItems: [1, 6], labItems: [1, 15], itemMax: 100 };
+  const LIMITS = { cat1: 15, cat2: 15, fat: 40, raw: { cat1: 50, cat2: 50, fat: 100 }, quizTotal: 30, quizItems: [1, 6], labItems: [1, 15], itemMax: 100 };
 
   // '' -> null, '12.5' -> 12.5, 'abc' -> NaN
   function num(v) {
@@ -38,17 +38,25 @@
     return { got, max, errs };
   }
 
+  // a CAT or FAT mark scaled to its share of theory (/15, /15, /40). New saves (s.raw) hold
+  // the paper mark (CAT /50, FAT /100); older saves already hold the scaled mark.
+  function scaled(s, k) {
+    const n = num(s[k]);
+    if (n === null || Number.isNaN(n)) return null;
+    return s.raw ? n * LIMITS[k] / LIMITS.raw[k] : n;
+  }
+
   // theory out of 100: CAT-1 /15 + CAT-2 /15 + FAT /40 + quizzes /30
   function theory(s) {
     const errs = [];
     ['cat1', 'cat2', 'fat'].forEach(k => {
-      const e = checkScore(s[k], LIMITS[k], { cat1: 'CAT-1', cat2: 'CAT-2', fat: 'FAT' }[k]);
+      const e = checkScore(s[k], s.raw ? LIMITS.raw[k] : LIMITS[k], { cat1: 'CAT-1', cat2: 'CAT-2', fat: 'FAT' }[k]);
       if (e) errs.push(e);
     });
     const q = items(s.quiz || [], 'Quiz');
     errs.push(...q.errs);
     if (!q.errs.length && r2(q.max) !== LIMITS.quizTotal) errs.push('Quiz max marks add up to ' + r2(q.max) + ', they should add up to 30');
-    const value = (num(s.cat1) || 0) + (num(s.cat2) || 0) + (num(s.fat) || 0) + q.got;
+    const value = (scaled(s, 'cat1') || 0) + (scaled(s, 'cat2') || 0) + (scaled(s, 'fat') || 0) + q.got;
     return { value: errs.length ? null : r2(value), quiz: q, errs };
   }
 
@@ -204,6 +212,6 @@
     return { past, sems, counted, now, before, after, clearedCr: clearedErr ? 0 : clearedCr, clearedErr };
   }
 
-  const VC = { GRADES, POINTS, LIMITS, SEM_CREDITS, num, theory, lab, single, checkRanges, gradeOf, splitCredits, parts, gpa, courses, semCredits, checkGpa, cgpa, semName, semOrder, cgpaSummary };
+  const VC = { GRADES, POINTS, LIMITS, SEM_CREDITS, num, scaled, theory, lab, single, checkRanges, gradeOf, splitCredits, parts, gpa, courses, semCredits, checkGpa, cgpa, semName, semOrder, cgpaSummary };
   if (typeof module !== 'undefined' && module.exports) module.exports = VC; else root.VC = VC;
 })(this);
