@@ -11,13 +11,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="js/common.js"></script>
+<script src="js/merge.js"></script>
+<script src="js/account.js"></script>
 </head>
 <body>
 <header class="top">
   <div class="wrap">
     <a class="logo" href="./" aria-label="VIT cgpa home"><b>VIT</b><span>cgpa</span></a>
     <nav>
-      <a class="navlink" href="calc" aria-current="page">Calculator</a>
+      <a class="navlink" href="calc" aria-current="page">Calc<span class="nav-text">ulator</span></a>
       <a class="navlink" href="cgpa">CGPA</a>
       <a class="navlink" href="share">Share</a>
       <button class="icon-btn" type="button" data-theme-toggle aria-label="Switch light or dark mode">
@@ -30,7 +32,7 @@
 </header>
 <div class="banner" data-banner>
   <div class="wrap">
-    <p>Your marks are saved on this device. <a href="#" data-signin>Sign in</a> (coming soon) to keep them on every device.</p>
+    <p>Your marks are saved on this device. <a href="#" data-signin>Sign in with your VIT account</a> to keep them on every device.</p>
     <button type="button" data-banner-close aria-label="Dismiss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
 </div>
@@ -108,6 +110,33 @@
     <div class="actions">
       <button class="btn btn-ghost" type="button" data-close>Cancel</button>
       <button class="btn btn-primary" value="ok">Add subject</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="request" aria-labelledby="request-title">
+  <form method="dialog" novalidate>
+    <h2 id="request-title">Request a subject</h2>
+    <p class="hint">Tell us what's missing and we'll add it to the list. Codes and credits are on VTOP under Course Registration.</p>
+    <div class="row2">
+      <label class="field"><span>Course code</span><input class="input" name="code" placeholder="BACSE103" autocomplete="off" maxlength="12"></label>
+      <label class="field"><span>Credits</span><input class="input" name="credits" inputmode="decimal" placeholder="4" autocomplete="off"></label>
+    </div>
+    <label class="field"><span>Course title</span><input class="input" name="title" placeholder="Computation Structures" autocomplete="off" maxlength="80"></label>
+    <label class="field"><span>Type</span>
+      <select class="select" name="type">
+        <option value="ETL">Theory + lab</option>
+        <option value="TH">Theory only</option>
+        <option value="LO">Lab only</option>
+        <option value="OC">Online course</option>
+        <option value="SS">Soft skill</option>
+      </select>
+    </label>
+    <label class="field"><span>Note (optional)</span><input class="input" name="note" placeholder="e.g. new elective for 2026 batch" autocomplete="off" maxlength="300"></label>
+    <p class="err" id="request-err"></p>
+    <div class="actions">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" value="ok" id="request-ok">Send request</button>
     </div>
   </form>
 </dialog>

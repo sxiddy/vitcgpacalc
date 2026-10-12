@@ -1,9 +1,18 @@
 // Local preview server: node tools/serve.js  ->  http://localhost:5173 (serves /calc as calc.html like Vercel's cleanUrls)
+// /api/* runs the functions in api/ with in-memory storage and a test sign-in (VC_DEV=1), so nothing real is touched.
+process.env.VC_DEV = '1';
 const http = require('http'), fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.xml': 'application/xml', '.txt': 'text/plain' };
 http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);
+  const api = /^\/api\/([a-z]+)$/.exec(p);
+  if (api) {
+    const file = path.join(root, 'api', api[1] + '.js');
+    if (!fs.existsSync(file)) { res.writeHead(404); return res.end(); }
+    return require(file)(req, res);
+  }
+  if (p.startsWith('/api/') || p.includes('/_lib/') || p.startsWith('/tools/') || p.startsWith('/.')) { res.writeHead(404); return res.end('Not found'); }
   if (p.endsWith('/')) p += 'index.html';
   let file = path.join(root, p);
   if (!file.startsWith(root)) { res.writeHead(403); return res.end(); }

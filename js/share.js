@@ -3,14 +3,14 @@
   const $ = (s, el = document) => el.querySelector(s);
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const fmt = n => (n === null || n === undefined ? '–' : (Math.round(n * 100) / 100).toString());
-  const read = k => { try { return JSON.parse(sessionStorage.getItem(k)); } catch (e) { return null; } };
+  const read = k => vcData.get(k);
 
   // ---------- state ----------
   const cs = read('vc-state') || { sems: {}, locks: {} };
   cs.sems = cs.sems || {}; cs.locks = cs.locks || {};
   const cg = read('vc-cgpa') || {};
   let st = Object.assign({ size: 'story', design: 'glow', hide: false, pick: {}, off: {}, sem: '' }, read('vc-share') || {});
-  const save = () => { try { sessionStorage.setItem('vc-share', JSON.stringify(st)); } catch (e) {} };
+  const save = () => vcData.set('vc-share', st);
 
   const semIds = Object.keys(cs.sems).filter(id => (cs.sems[id] || []).length).sort((a, b) => VC.semOrder(b) - VC.semOrder(a));
   if (!semIds.includes(st.sem)) st.sem = semIds.includes(cs.sem) ? cs.sem : semIds[0] || cs.sem || '';
@@ -157,5 +157,7 @@
     $('#save-btn').addEventListener('click', saveImage);
     $('#share-btn').addEventListener('click', shareImage);
     addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
+    // marks loaded from the account: start again from them
+    addEventListener('vc-sync', () => location.reload());
   });
 })();

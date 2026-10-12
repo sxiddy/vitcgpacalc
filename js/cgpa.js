@@ -202,6 +202,12 @@
       if (e.key === 'vc-cgpa') { const s = vcData.get('vc-cgpa'); if (s && s.quick) { st = Object.assign(st, s); renderMode(); } }
       if (e.key === 'vc-cgpa' || e.key === 'vc-state' || e.key === null) render();
     });
+    // marks loaded from the account, or changed on another device
+    addEventListener('vc-sync', () => {
+      const s = vcData.get('vc-cgpa');
+      st = Object.assign({ mode: 'quick', quick: { cgpa: '', credits: '' }, past: [], cleared: [] }, s && s.quick ? s : {});
+      renderMode(); render();
+    });
     $('#calc-list').addEventListener('toggle', e => { const d = e.target.closest('[data-sem]'); if (d) d.open ? openLogs.add(d.dataset.sem) : openLogs.delete(d.dataset.sem); }, true);
     // on phones the dock repeats the result card, so hide it while the card is on screen
     if ('IntersectionObserver' in window) new IntersectionObserver(es => { $('.dock').classList.toggle('away', es[0].isIntersecting); }).observe($('#big'));

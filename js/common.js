@@ -1,4 +1,4 @@
-// Shared by every page: theme toggle, sign-in banner, toast.
+// Shared by every page: theme toggle, banner, saved data, backups, toast. Sign-in is js/account.js.
 (function () {
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -6,9 +6,9 @@
   };
   window.vcStore = store;
 
-  // ---------- marks and semesters, kept on this device until sign-in exists ----------
-  // 'vc-state' is the calculator (every semester's subjects, marks, ranges, locks), 'vc-cgpa' the CGPA page
-  const DATA_KEYS = ['vc-state', 'vc-cgpa'];
+  // ---------- marks and semesters, kept on this device (and in the account when signed in, js/account.js) ----------
+  // 'vc-state' is the calculator (every semester's subjects, marks, ranges, locks), 'vc-cgpa' the CGPA page, 'vc-share' the share page
+  const DATA_KEYS = ['vc-state', 'vc-cgpa', 'vc-share'];
   const data = {
     get(k) {
       try {
@@ -81,7 +81,9 @@
       });
     }));
     document.querySelectorAll('[data-wipe]').forEach(b => b.addEventListener('click', async () => {
-      if (!await ask('Delete all your data?', 'Every semester, mark and grade saved on this device will be deleted. Download a backup first if you might need it.', 'Delete everything')) return;
+      const acct = window.vcAccount && vcAccount.user;
+      if (!await ask('Delete all your data?', 'Every semester, mark and grade saved on this device' + (acct ? ' and in your account' : '') + ' will be deleted. Download a backup first if you might need it.', 'Delete everything')) return;
+      if (acct) { data.clear(); await vcAccount.saveNow(); }
       data.clear();
       location.reload();
     }));
@@ -112,10 +114,6 @@
 
     bindData();
 
-    document.querySelectorAll('[data-signin]').forEach(b => b.addEventListener('click', e => {
-      e.preventDefault();
-      toast('Sign-in with your VIT student account is coming soon');
-    }));
   });
 
   let timer;

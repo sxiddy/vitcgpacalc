@@ -37,7 +37,9 @@
   // ---------- confirming subjects (locked for 12 hours after confirming) ----------
   const LOCK_MS = 12 * 60 * 60 * 1000, CREDITS = VC.SEM_CREDITS;
   const lock = () => { state.locks = state.locks || {}; return state.locks[state.sem] || { confirmed: false, until: 0 }; };
-  const isLocked = () => lock().until > Date.now();
+  // signed in, the lock and its clock come from the server (js/account.js)
+  const now = () => (window.vcNow ? vcNow() : Date.now());
+  const isLocked = () => lock().until > now();
   const totalCredits = () => subjects().reduce((n, s) => n + (Number(s.cr) || 0), 0);
   // any change to the subject list after the lock ends needs a fresh confirm
   function unconfirm() { if (lock().confirmed) { state.locks[state.sem] = { confirmed: false, until: 0 }; } }
@@ -207,6 +209,9 @@
     }).join('');
   }
 
+  // has any mark been typed for this subject? (empty boxes count as 0)
+  const typed = s => ['cat1', 'cat2', 'fat', 'oc'].some(k => VC.num(s[k]) !== null) || ['quiz', 'lab'].some(k => (s[k] || []).some(it => VC.num(it.s) !== null));
+
   // ---------- events on cards ----------
   function setField(s, path, value) {
     const k = path.split('.');
@@ -222,6 +227,7 @@
       const card = e.target.closest('.card'), s = byId(card.dataset.id);
       setField(s, f, e.target.value);
       refresh(card, s); renderSummary(); save();
+      if (window.vcAccount && typed(s) && VC.parts(s).every(p => p.value !== null)) vcAccount.count(s.id);
     });
     list.addEventListener('click', e => {
       const b = e.target.closest('[data-act]'); if (!b) return;
@@ -302,7 +308,7 @@
       const added = new Set(subjects().map(s => s.c));
       box.innerHTML = hits.length
         ? hits.map((c, i) => `<button type="button" role="option" class="result${added.has(c.c) ? ' added' : ''}" data-i="${i}" id="opt-${i}"><span class="code">${esc(c.c)}</span><span class="title">${esc(c.t)}</span>${c.cur === 'old' ? '<span class="pill" title="2021–2025 curriculum">Old</span>' : ''}<span class="pill">${TYPE[c.y] || c.y} · ${fmt(c.cr)}</span></button>`).join('')
-        : `<div class="none">No subject matches “${esc(input.value.trim())}”.<br><button type="button" class="btn btn-sm" data-custom>${ICON.plus}Add it yourself</button></div>`;
+        : `<div class="none">No subject matches “${esc(input.value.trim())}”.<br><span class="none-acts"><button type="button" class="btn btn-sm" data-custom>${ICON.plus}Add it yourself</button><button type="button" class="btn btn-sm btn-ghost" data-request>Request it</button></span><small>Requesting it helps us add it for everyone.</small></div>`;
       box.hidden = false; input.setAttribute('aria-expanded', 'true'); active = -1;
     }
     function pick(i) { const c = hits[i]; if (!c) return; addSubject(c); input.value = ''; close(); }
@@ -322,6 +328,7 @@
     box.addEventListener('click', e => {
       const r = e.target.closest('.result'); if (r) { pick(+r.dataset.i); return; }
       if (e.target.closest('[data-custom]')) { openCustom(input.value.trim()); close(); }
+      if (e.target.closest('[data-request]')) { openRequest(input.value.trim()); close(); }
     });
     document.addEventListener('click', e => { if (!e.target.closest('.search')) close(); });
   }
@@ -367,6 +374,38 @@
       if (err) { $('#custom-err').textContent = err; return; }
       d.close();
       addSubject({ c: code, t: title, y: f.type.value, cr, custom: true });
+    });
+  }
+
+  // ---------- request a subject that isn't in the list ----------
+  function openRequest(prefill) {
+    const d = $('#request'), f = d.querySelector('form');
+    f.reset();
+    if (prefill && /^[A-Za-z]{2,6}\d{2,4}[A-Za-z]?$/.test(prefill)) f.code.value = prefill.toUpperCase();
+    else if (prefill) f.title.value = prefill;
+    $('#request-err').textContent = '';
+    d.showModal();
+  }
+  function bindRequest() {
+    const d = $('#request'), f = d.querySelector('form'), btn = $('#request-ok');
+    f.addEventListener('submit', async e => {
+      e.preventDefault();
+      const code = f.code.value.trim().toUpperCase().replace(/\s+/g, ''), title = f.title.value.trim(), cr = VC.num(f.credits.value);
+      let err = '';
+      if (!/^[A-Z0-9]{3,12}$/.test(code) || !/[A-Z]/.test(code) || !/\d/.test(code)) err = 'Enter a course code like BACSE103';
+      else if (title.length < 3) err = 'Enter the course title';
+      else if (cr === null || Number.isNaN(cr) || cr < 0.5 || cr > 20 || Math.round(cr * 2) !== cr * 2) err = 'Credits must be between 0.5 and 20';
+      if (err) { $('#request-err').textContent = err; return; }
+      btn.disabled = true; btn.textContent = 'Sending…';
+      let r = null;
+      try { r = await fetch('api/request', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, title, credits: cr, type: f.type.value, note: f.note.value }) }); } catch (x) {}
+      const j = r ? await r.json().catch(() => ({})) : {};
+      btn.disabled = false; btn.textContent = 'Send request';
+      if (!r || !r.ok) { $('#request-err').textContent = r && (r.status === 400 || r.status === 429) && j.err ? j.err : "Couldn't send it right now. Try again in a bit."; return; }
+      d.close();
+      vcToast(j.again ? 'Thanks! Others asked for ' + code + ' too, so it moves up the list' : "Thanks! We'll add " + code + ' soon');
+      // they still need it this semester, so add it as their own subject
+      if (!isLocked() && !subjects().some(s => s.c === code)) addSubject({ c: code, t: title, y: f.type.value, cr, custom: true });
     });
   }
 
@@ -418,6 +457,13 @@
     }
     const sem = $('#semester').selectedOptions[0].textContent;
     if (!await ask('Confirm your subjects', `${subjects().length} subjects, ${fmt(cr)} credits for ${sem}. After confirming you can't add or remove subjects for 12 hours. You can still change your marks.`, 'Confirm')) return;
+    if (window.vcAccount && vcAccount.user) {
+      const r = await vcAccount.confirm(state.sem);
+      const s = vcData.get('vc-state'); if (s && s.sems) { s.sem = state.sem; state = s; }
+      renderCards();
+      vcToast(r.ok ? 'Subjects confirmed' : r.msg);
+      return;
+    }
     state.locks = state.locks || {};
     state.locks[state.sem] = { confirmed: true, until: Date.now() + LOCK_MS };
     save(); renderCards();
@@ -436,15 +482,25 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    bindSemester(); bindCards(); bindSearch(); bindCustom(); renderCards();
+    bindSemester(); bindCards(); bindSearch(); bindCustom(); bindRequest(); renderCards();
     $('#lockbar').addEventListener('click', e => { if (e.target.closest('[data-confirm-subjects]')) confirmSubjects(); });
     let wasLocked = isLocked();
-    setInterval(() => { if (wasLocked && !isLocked()) renderCards(); wasLocked = isLocked(); }, 30000);
+    setInterval(() => { if (wasLocked !== isLocked()) renderCards(); wasLocked = isLocked(); }, 30000);
     // another tab may have changed the saved marks; take them when this tab comes back so it can't overwrite them
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) return;
       const s = vcData.get('vc-state');
       if (s && s.sems && JSON.stringify(s) !== JSON.stringify(state)) { state = s; $('#semester').value = state.sem; renderCards(); }
+    });
+    // marks loaded from the account, or changed on another device
+    addEventListener('vc-sync', () => {
+      const s = vcData.get('vc-state');
+      const next = s && s.sems ? s : { sem: state.sem, sems: {} };
+      next.sem = state.sem;
+      if (JSON.stringify(next) === JSON.stringify(state)) return;
+      const open = openFolds();
+      state = next;
+      renderCards(); restoreFolds(open);
     });
     fetch('data/subjects.json').then(r => r.json()).then(list => { catalog = list.filter(c => c.y !== 'PJT'); }).catch(() => vcToast("Couldn't load the subject list. You can still add subjects yourself."));
   });
