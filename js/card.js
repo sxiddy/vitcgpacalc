@@ -2,7 +2,7 @@
 // data = { sem, rows: [{ code, title, mark, grade }], stats: [{ label, value, note }], hideMarks }
 (function (root) {
   const SIZES = { story: [1080, 1920], square: [1080, 1080] };
-  const SITE = 'vitcgpacalc.vercel.app', URL = 'https://' + SITE;
+  const SITE = 'markscalc.cv', URL = 'https://' + SITE;
   const C = {
     bg: '#0a0a0d', bg2: '#131318', text: '#f3f0e8', text2: '#a7a3ad', text3: '#6f6c76',
     gold: '#e8b84a', gold2: '#f6d98b', blue: '#4c86ff', blue2: '#8fb3ff', ink: '#1a1405'

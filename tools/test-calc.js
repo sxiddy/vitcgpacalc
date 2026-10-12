@@ -91,9 +91,9 @@ eq('summary: semester names', [VC.semName('WINSEM2025-26'), VC.semName('SUMSEM20
 
 // ---------- QR code ----------
 const QR = require('../js/qr.js');
-const q = QR.make('https://vitcgpacalc.vercel.app');
-eq('QR for the site link is version 3 (29 x 29)', [q.version, q.size], [3, 29]);
-eq('QR finder corners are dark', [q.dark(0, 0), q.dark(28, 0), q.dark(0, 28), q.dark(28, 28)], [true, true, true, false]);
+const q = QR.make('https://markscalc.cv');
+eq('QR for the site link is version 2 (25 x 25)', [q.version, q.size], [2, 25]);
+eq('QR finder corners are dark, timing row alternates', [q.dark(0, 0), q.dark(24, 0), q.dark(0, 24), q.dark(8, 6), q.dark(9, 6), q.dark(6, 9)], [true, true, true, true, false, false]);
 
 console.log(fails ?fails + ' failed' : 'all passed');
 process.exit(fails ? 1 : 0);
