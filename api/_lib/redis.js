@@ -40,32 +40,44 @@ function memCmd([c, ...a]) {
   }
 }
 
+// every key lives under 'vc:' so this site can share a database with another project
+const P = 'vc:';
+function scoped(args) {
+  const a = args.map(String), c = a[0].toUpperCase();
+  if (c === 'DEL') return [a[0]].concat(a.slice(1).map(k => P + k));
+  if (a.length > 1) a[1] = P + a[1];
+  return a;
+}
+
 const ready = () => !!(URL_ && TOKEN) || local;
 
 // one command: cmd('SET', 'k', 'v') -> result
 async function cmd(...args) {
-  if (local) return memCmd(args.map(String));
-  const j = await rest('', args.map(String));
+  if (local) return memCmd(scoped(args));
+  const j = await rest('', scoped(args));
   if (j.error) throw new Error(j.error);
   return j.result;
 }
 
 // several commands in one round trip -> [results]
 async function pipe(list) {
-  if (local) return list.map(c => memCmd(c.map(String)));
-  const j = await rest('/pipeline', list.map(c => c.map(String)));
+  if (local) return list.map(c => memCmd(scoped(c)));
+  const j = await rest('/pipeline', list.map(scoped));
   return j.map(x => { if (x.error) throw new Error(x.error); return x.result; });
 }
 
 // save data only if nobody saved since `rev` (so two devices can't overwrite each other)
 const CAS = "if (redis.call('GET', KEYS[1]) or '0') == ARGV[1] then redis.call('SET', KEYS[2], ARGV[3]); redis.call('SET', KEYS[1], ARGV[2]); return 1 end return 0";
 async function saveIfRev(revKey, dataKey, rev, next, value) {
+  revKey = P + revKey; dataKey = P + dataKey;
   if (local) {
     if ((memCmd(['GET', revKey]) || '0') !== String(rev)) return false;
     memCmd(['SET', dataKey, value]); memCmd(['SET', revKey, String(next)]);
     return true;
   }
-  return (await cmd('EVAL', CAS, 2, revKey, dataKey, rev, next, value)) === 1;
+  const j = await rest('', ['EVAL', CAS, '2', revKey, dataKey, String(rev), String(next), value]);
+  if (j.error) throw new Error(j.error);
+  return j.result === 1;
 }
 
 const reset = () => { mem.clear(); exp.clear(); };
