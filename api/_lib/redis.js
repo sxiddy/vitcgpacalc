@@ -2,7 +2,10 @@
 // locally (tools/serve.js sets VC_DEV=1) or in tests, an in-memory copy stands in.
 const URL_ = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
 const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
-const local = !URL_ && process.env.VC_DEV === '1' && !process.env.VERCEL;
+// Turso (SQLite) replaced Upstash in Nov 2026: used whenever its two settings are present (remove them to go back)
+const TURSO = process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN ? { url: process.env.TURSO_DATABASE_URL, token: process.env.TURSO_AUTH_TOKEN } : null;
+const turso = TURSO ? require('./_turso') : null;
+const local = !TURSO && !URL_ && process.env.VC_DEV === '1' && !process.env.VERCEL;
 
 async function rest(path, body) {
   const r = await fetch(URL_ + path, { method: 'POST', headers: { authorization: 'Bearer ' + TOKEN, 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -49,11 +52,12 @@ function scoped(args) {
   return a;
 }
 
-const ready = () => !!(URL_ && TOKEN) || local;
+const ready = () => !!TURSO || !!(URL_ && TOKEN) || local;
 
 // one command: cmd('SET', 'k', 'v') -> result
 async function cmd(...args) {
   if (local) return memCmd(scoped(args));
+  if (TURSO) { const [r] = await turso.pipeline([scoped(args)], TURSO); if (r.error) throw new Error(r.error); return r.result; }
   const j = await rest('', scoped(args));
   if (j.error) throw new Error(j.error);
   return j.result;
@@ -62,6 +66,7 @@ async function cmd(...args) {
 // several commands in one round trip -> [results]
 async function pipe(list) {
   if (local) return list.map(c => memCmd(scoped(c)));
+  if (TURSO) return (await turso.pipeline(list.map(scoped), TURSO)).map(x => { if (x.error) throw new Error(x.error); return x.result; });
   const j = await rest('/pipeline', list.map(scoped));
   return j.map(x => { if (x.error) throw new Error(x.error); return x.result; });
 }
@@ -74,6 +79,17 @@ async function saveIfRev(revKey, dataKey, rev, next, value) {
     if ((memCmd(['GET', revKey]) || '0') !== String(rev)) return false;
     memCmd(['SET', dataKey, value]); memCmd(['SET', revKey, String(next)]);
     return true;
+  }
+  if (TURSO) { // same check-and-save as the Lua script, as one SQL transaction
+    await turso.pipeline([], TURSO); // makes sure the tables exist
+    const r = await turso.hrana(TURSO, [
+      { sql: 'BEGIN', args: [] },
+      { sql: "INSERT INTO str (k, v) SELECT ?2, ?4 WHERE COALESCE((SELECT v FROM str WHERE k = ?1), '0') = ?3 ON CONFLICT (k) DO UPDATE SET v = excluded.v", args: [revKey, dataKey, String(rev), value] },
+      { sql: 'INSERT INTO str (k, v) SELECT ?1, ?2 WHERE changes() = 1 ON CONFLICT (k) DO UPDATE SET v = excluded.v', args: [revKey, String(next)] },
+      { sql: 'COMMIT', args: [] },
+    ]);
+    const bad = r.find(x => x.error); if (bad) throw new Error(bad.error);
+    return r[1].affected === 1;
   }
   const j = await rest('', ['EVAL', CAS, '2', revKey, dataKey, String(rev), String(next), value]);
   if (j.error) throw new Error(j.error);
